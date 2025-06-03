@@ -63,6 +63,8 @@ def _look_for_debug_symbols(lib_file: str) -> tuple[bool, str]:
 
 def _get_symbols(cmd_args: list[str], lib_file: str) -> str:
     syms = _run_command(args=[*cmd_args, lib_file])
+    print(f"Command: {' '.join(cmd_args)}")
+    # print(f"Output: {syms}")
     return "\n".join(
         [line for line in syms.split("\n") if line and _MACHO_STRIP_SYMBOL not in line]
     )
@@ -70,7 +72,11 @@ def _get_symbols(cmd_args: list[str], lib_file: str) -> str:
 
 def _nm_reports_debug_symbols(tool_name: str, lib_file: str) -> tuple[bool, str]:
     exported_symbols = _get_symbols(cmd_args=[tool_name], lib_file=lib_file)
+    # print(exported_symbols)
     all_symbols = _get_symbols(cmd_args=[tool_name, "-a"], lib_file=lib_file)
+    # print(all_symbols)
+    # print("the debug symbols are:")
+    # print(exported_symbols)
     return exported_symbols != all_symbols, f"{tool_name} -a"
 
 

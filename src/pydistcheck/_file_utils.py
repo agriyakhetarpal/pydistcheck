@@ -109,12 +109,15 @@ _MACH_O_MAGIC_FIRST_4_BYTES = {
     0xCAFEBABF.to_bytes(4, "big"),  # mach-o fat binary
 }
 
+# Unix archive format for static libraries
+_AR_MAGIC_GLOBAL_HEADER = b'!<arch>\n'
 
 class _FileFormat:
     ELF = "ELF"
     MACH_O = "Mach-O"
     OTHER = "Other"
     WINDOWS_PE = "Windows PE"
+    STATIC_LIBRARY = "Static Library"
 
 
 def _guess_archive_member_file_format(
@@ -127,6 +130,31 @@ def _guess_archive_member_file_format(
 
     Returns a two-item tuple of the form ``(file_format, is_compiled)``.
     """
+    # First check if it's a static library based on the file extension, and try
+    # confirming if it's actually a static library by checking the magic number.
+    if member_name.lower().endswith('.a'):
+        try:
+            if isinstance(archive_file, zipfile.ZipFile):
+                with archive_file.open(name=member_name, mode="r") as f:
+                    header = f.read(8)
+            else:
+                fileobj = archive_file.extractfile(member_name)
+                if fileobj is None:  # pragma: no cover
+                    error_msg = (
+                        f"'{member_name}' not found. This is a bug in pydistcheck:"
+                        "Please report it at https://github.com/jameslamb/pydistcheck/issues."
+                    )
+                    raise RuntimeError(error_msg)
+                header = fileobj.read(8)
+
+            if header == _AR_MAGIC_GLOBAL_HEADER:
+                return _FileFormat.STATIC_LIBRARY, True
+        except Exception:
+            # If we can't confirm the file format, assume it's a static library solely based
+            # on the file extension.
+            return _FileFormat.STATIC_LIBRARY, True
+
+    # Continue with existing format detection for other file types
     if isinstance(archive_file, zipfile.ZipFile):
         with archive_file.open(name=member_name, mode="r") as f:
             header = f.read(4)
